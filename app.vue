@@ -71,7 +71,6 @@
 
 <template>
   <NuxtLayout>
-    <main class="container mx-auto grow px-4 py-8">
       <UiSpinner v-if="teamsStore.isLoading" />
       <!-- Teams Table View (moved above favorite team section) -->
       <div
@@ -992,7 +991,6 @@
           </div>
         </div>
       </div>
-    </main>
 
     <!-- Add this modal for editing team details -->
     <BaseModal
