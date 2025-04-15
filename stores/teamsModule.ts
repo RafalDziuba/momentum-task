@@ -348,6 +348,11 @@ export const useTeamsStore = defineStore('teams', () => {
     isEditingTeamDetails.value = false;
   }
 
+  // Method to clear the selected team
+  function clearSelectedTeam() {
+    selectedTeamId.value = null;
+  }
+
   return {
     // State
     teams,
@@ -384,5 +389,6 @@ export const useTeamsStore = defineStore('teams', () => {
     startEditingTeamDetails,
     cancelEditTeamDetails,
     saveTeamDetails,
+    clearSelectedTeam,
   };
 });
