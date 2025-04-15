@@ -6,7 +6,6 @@
   import TeamInfoBox from './components/Modal/TeamInfoBox.vue';
   import { useTeamsStore } from './stores/teamsModule';
 
-  // Inicjalizacja Pinia store
   const teamsStore = useTeamsStore();
 
   const sortBy = ref<SortField>(SortField.Position);
@@ -376,7 +375,7 @@
                   </div>
                   <!-- Favorite Star -->
                   <button
-                    @click="teamsStore.toggleFavoriteTeam(team)"
+                    @click.stop="teamsStore.toggleFavoriteTeam(team)"
                     class="ml-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     :class="{
                       'bg-yellow-500 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200':
