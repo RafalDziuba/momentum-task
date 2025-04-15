@@ -1,236 +1,27 @@
 <script setup lang="ts">
   import { ref, onMounted, computed } from 'vue';
   import type { Team, Match, FormattedMatch } from './types';
-  import { SortField, SortDirection, MatchResult } from './types/enums';
+  import { SortField, SortDirection } from './types/enums';
   import BaseModal from './components/Modal/BaseModal.vue';
   import TeamInfoBox from './components/Modal/TeamInfoBox.vue';
+  import { useTeamsStore } from './stores/teamsModule';
 
-  interface TeamsResponse {
-    teams: Team[];
-    matches: Match[];
-  }
+  // Inicjalizacja Pinia store
+  const teamsStore = useTeamsStore();
 
-  const selectedTeam = ref<Team | null>(null);
-  const isLoading = ref<boolean>(false);
-  const teams = ref<Team[]>([]);
   const sortBy = ref<SortField>(SortField.Position);
   const sortDirection = ref<SortDirection>(SortDirection.Asc);
-  const teamMatches = ref<FormattedMatch[]>([]);
-  const isLoadingMatches = ref<boolean>(false);
-  const allMatches = ref<Match[]>([]);
-  const editingMatch = ref<FormattedMatch | null>(null);
-  const isEditingResult = ref<boolean>(false);
-  const editHomeScore = ref<number>(0);
-  const editAwayScore = ref<number>(0);
-  const showEditSuccess = ref<boolean>(false);
-  const isEditingTeamDetails = ref<boolean>(false);
-  const editCoach = ref<string>('');
-  const editStadium = ref<string>('');
-  const favoriteTeamId = ref<number | null>(null);
 
-  // Add a new computed property for favorite team data
-  const favoriteTeam = computed<Team | null>(() => {
-    if (!favoriteTeamId.value || !teams.value.length) return null;
-    return teams.value.find(team => team.id === favoriteTeamId.value) || null;
-  });
-
-  // Computed property to calculate games played for each team
-  const gamesPlayed = computed(() => {
-    return (team: Team): number => {
-      return team.wins + team.draws + team.losses;
-    };
-  });
-
-  // Combine the two match-getting functions into one with an optional limit parameter
-  function getTeamMatches(teamId: number, limit: number | null = null): FormattedMatch[] {
-    if (!teamId || !allMatches.value.length) return [];
-
-    // Filter matches for the team
-    const matches = allMatches.value.filter(
-      match => match.homeTeamId === teamId || match.awayTeamId === teamId
-    );
-
-    // Sort matches by date (most recent first)
-    const sortedMatches = [...matches].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    // Apply limit if provided
-    const limitedMatches = limit ? sortedMatches.slice(0, limit) : sortedMatches;
-
-    // Format matches for display
-    return limitedMatches.map(match => {
-      const isHome = match.homeTeamId === teamId;
-      const homeTeamObj = teams.value.find(t => t.id === match.homeTeamId);
-      const awayTeamObj = teams.value.find(t => t.id === match.awayTeamId);
-
-      // Determine result for the team
-      let result: MatchResult;
-      if (isHome) {
-        result =
-          match.homeScore > match.awayScore
-            ? MatchResult.Win
-            : match.homeScore < match.awayScore
-            ? MatchResult.Loss
-            : MatchResult.Draw;
-      } else {
-        result =
-          match.awayScore > match.homeScore
-            ? MatchResult.Win
-            : match.awayScore < match.homeScore
-            ? MatchResult.Loss
-            : MatchResult.Draw;
-      }
-
-      return {
-        id: match.id,
-        date: match.date,
-        homeTeam: homeTeamObj?.name || 'Unknown Team',
-        awayTeam: awayTeamObj?.name || 'Unknown Team',
-        homeScore: match.homeScore,
-        awayScore: match.awayScore,
-        result,
-        isHome,
-      };
-    });
-  }
-
-  // Update the computed property to use the new function
-  const favoriteTeamRecentMatches = computed<FormattedMatch[]>(() => {
-    if (!favoriteTeam.value) return [];
-    return getTeamMatches(favoriteTeam.value.id, 5);
-  });
-
-  // Update the selectTeam function to use the new function
-  const selectTeam = async (team: Team) => {
-    selectedTeam.value = team;
-    isLoadingMatches.value = true;
-
-    try {
-      // Get all matches for the team
-      teamMatches.value = getTeamMatches(team.id);
-    } catch (error) {
-      console.error('Error fetching team matches:', error);
-      teamMatches.value = [];
-    } finally {
-      isLoadingMatches.value = false;
-    }
-  };
-
-  const fetchTeams = async () => {
-    isLoading.value = true;
-
-    try {
-      // Add artificial delay to show loading state
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const { data } = await useFetch<TeamsResponse>('/data/teams.json');
-
-      // Store all matches
-      allMatches.value = data.value?.matches || [];
-
-      // Get teams data
-      const teamsData = data.value?.teams || [];
-
-      // Calculate points and positions based on matches
-      const teamsWithStats = calculateTeamStats(teamsData, allMatches.value);
-
-      // Sort teams by points (descending) to determine positions
-      const sortedTeams = [...teamsWithStats].sort((a, b) => b.points - a.points);
-
-      // Assign positions
-      sortedTeams.forEach((team, index) => {
-        team.position = index + 1;
-      });
-
-      teams.value = sortedTeams;
-    } catch (error) {
-      console.error('Error fetching teams:', error);
-      teams.value = [];
-      allMatches.value = [];
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  // Calculate team statistics based on matches
-  function calculateTeamStats(teamsData: Team[], matches: Match[]): Team[] {
-    // Create a map to store team stats
-    const teamStats: Record<number, Team> = {};
-
-    // Initialize stats for each team - ensure points start at exactly 0
-    teamsData.forEach(team => {
-      teamStats[team.id] = {
-        ...team,
-        points: 0, // Explicitly set to 0 to override any existing value
-        wins: 0,
-        draws: 0,
-        losses: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        recentForm: [],
-      };
-    });
-
-    // Process each match to update team stats
-    matches.forEach(match => {
-      const homeTeam = teamStats[match.homeTeamId];
-      const awayTeam = teamStats[match.awayTeamId];
-
-      if (!homeTeam || !awayTeam) return; // Skip if team not found
-
-      // Update goals
-      homeTeam.goalsFor += match.homeScore;
-      homeTeam.goalsAgainst += match.awayScore;
-      awayTeam.goalsFor += match.awayScore;
-      awayTeam.goalsAgainst += match.homeScore;
-
-      // Determine result and update points
-      if (match.homeScore > match.awayScore) {
-        // Home team wins
-        homeTeam.wins += 1;
-        homeTeam.points += 3; // 3 points for a win
-        homeTeam.recentForm.unshift(MatchResult.Win);
-        awayTeam.losses += 1;
-        // No points for a loss (0)
-        awayTeam.recentForm.unshift(MatchResult.Loss);
-      } else if (match.homeScore < match.awayScore) {
-        // Away team wins
-        awayTeam.wins += 1;
-        awayTeam.points += 3; // 3 points for a win
-        awayTeam.recentForm.unshift(MatchResult.Win);
-        homeTeam.losses += 1;
-        // No points for a loss (0)
-        homeTeam.recentForm.unshift(MatchResult.Loss);
-      } else {
-        // Draw
-        homeTeam.draws += 1;
-        homeTeam.points += 1; // 1 point for a draw
-        homeTeam.recentForm.unshift(MatchResult.Draw);
-        awayTeam.draws += 1;
-        awayTeam.points += 1; // 1 point for a draw
-        awayTeam.recentForm.unshift(MatchResult.Draw);
-      }
-    });
-
-    // Limit recent form to last 5 matches and reverse for display (most recent on right)
-    Object.values(teamStats).forEach(team => {
-      team.recentForm = team.recentForm.slice(0, 5).reverse();
-
-      // Final points calculation to ensure accuracy
-      team.points = team.wins * 3 + team.draws;
-    });
-
-    return Object.values(teamStats);
-  }
+  // Computed property to get selected team from store
+  const selectedTeam = computed(() => teamsStore.selectedTeam);
 
   onMounted(() => {
-    fetchTeams();
+    teamsStore.fetchTeams();
 
     // Load favorite team from local storage
     const savedFavoriteTeamId = localStorage.getItem('favoriteTeamId');
     if (savedFavoriteTeamId) {
-      favoriteTeamId.value = parseInt(savedFavoriteTeamId);
+        teamsStore.favoriteTeamId = parseInt(savedFavoriteTeamId);
     }
   });
 
@@ -248,7 +39,7 @@
 
   const filteredAndSortedTeams = computed<Team[]>(() => {
     // First filter the teams
-    let filtered = teams.value;
+    let filtered = teamsStore.teams;
 
     // Then sort the filtered results
     return [...filtered].sort((a, b) => {
@@ -277,203 +68,15 @@
       return sortDirection.value === SortDirection.Asc ? comparison : -comparison;
     });
   });
-
-  function startEditingMatch(match: FormattedMatch) {
-    editingMatch.value = { ...match };
-    editHomeScore.value = match.homeScore;
-    editAwayScore.value = match.awayScore;
-    isEditingResult.value = true;
-  }
-
-  function cancelEditMatch() {
-    isEditingResult.value = false;
-    editingMatch.value = null;
-  }
-
-  function saveMatchResult() {
-    if (!editingMatch.value) return;
-
-    // Validate scores
-    if (
-      editHomeScore.value < 0 ||
-      editHomeScore.value > 7 ||
-      editAwayScore.value < 0 ||
-      editAwayScore.value > 7
-    ) {
-      alert('Scores must be between 0 and 7');
-      return;
-    }
-
-    // Find the match in allMatches
-    const matchIndex = allMatches.value.findIndex(m => m.id === editingMatch.value?.id);
-    if (matchIndex === -1) return;
-
-    // Get the teams involved
-    const homeTeamId = allMatches.value[matchIndex].homeTeamId;
-    const awayTeamId = allMatches.value[matchIndex].awayTeamId;
-    const homeTeam = teams.value.find(t => t.id === homeTeamId);
-    const awayTeam = teams.value.find(t => t.id === awayTeamId);
-
-    // Store original scores for comparison
-    const originalHomeScore = allMatches.value[matchIndex].homeScore;
-    const originalAwayScore = allMatches.value[matchIndex].awayScore;
-
-    // Update the match scores
-    allMatches.value[matchIndex].homeScore = editHomeScore.value;
-    allMatches.value[matchIndex].awayScore = editAwayScore.value;
-
-    // Update the formatted match in teamMatches
-    const teamMatchIndex = teamMatches.value.findIndex(m => m.id === editingMatch.value?.id);
-    if (teamMatchIndex !== -1) {
-      const updatedMatch = { ...teamMatches.value[teamMatchIndex] };
-      updatedMatch.homeScore = editHomeScore.value;
-      updatedMatch.awayScore = editAwayScore.value;
-
-      // Update result (W/L/D) for the selected team
-      const isHome = updatedMatch.isHome;
-      if (isHome) {
-        updatedMatch.result =
-          editHomeScore.value > editAwayScore.value
-            ? MatchResult.Win
-            : editHomeScore.value < editAwayScore.value
-            ? MatchResult.Loss
-            : MatchResult.Draw;
-      } else {
-        updatedMatch.result =
-          editAwayScore.value > editHomeScore.value
-            ? MatchResult.Win
-            : editAwayScore.value < editHomeScore.value
-            ? MatchResult.Loss
-            : MatchResult.Draw;
-      }
-
-      teamMatches.value[teamMatchIndex] = updatedMatch;
-    }
-
-    // Recalculate team stats
-    const teamsData = teams.value.map(team => ({
-      ...team,
-      points: 0,
-      wins: 0,
-      draws: 0,
-      losses: 0,
-      goalsFor: 0,
-      goalsAgainst: 0,
-      recentForm: [],
-    }));
-
-    const teamsWithStats = calculateTeamStats(teamsData, allMatches.value);
-
-    // Sort teams by points (descending) to determine positions
-    const sortedTeams = [...teamsWithStats].sort((a, b) => {
-      // First sort by points
-      if (b.points !== a.points) {
-        return b.points - a.points;
-      }
-      // If points are equal, sort by goal difference
-      const aGoalDiff = a.goalsFor - a.goalsAgainst;
-      const bGoalDiff = b.goalsFor - b.goalsAgainst;
-      if (bGoalDiff !== aGoalDiff) {
-        return bGoalDiff - aGoalDiff;
-      }
-      // If goal difference is equal, sort by goals scored
-      if (b.goalsFor !== a.goalsFor) {
-        return b.goalsFor - a.goalsFor;
-      }
-      // If everything is equal, sort alphabetically
-      return a.name.localeCompare(b.name);
-    });
-
-    // Assign positions
-    sortedTeams.forEach((team, index) => {
-      team.position = index + 1;
-    });
-
-    teams.value = sortedTeams;
-
-    // Update the selected team reference to reflect the new stats
-    if (selectedTeam.value) {
-      const updatedSelectedTeam = teams.value.find(t => t.id === selectedTeam.value?.id);
-      if (updatedSelectedTeam) {
-        selectedTeam.value = updatedSelectedTeam;
-      }
-    }
-
-    // Show success message
-    showEditSuccess.value = true;
-    setTimeout(() => {
-      showEditSuccess.value = false;
-    }, 3000);
-
-    // Close edit mode
-    isEditingResult.value = false;
-    editingMatch.value = null;
-  }
-
-  function startEditingTeamDetails() {
-    if (!selectedTeam.value) return;
-
-    editCoach.value = selectedTeam.value.coach;
-    editStadium.value = selectedTeam.value.stadium;
-    isEditingTeamDetails.value = true;
-  }
-
-  function cancelEditTeamDetails() {
-    editCoach.value = '';
-    editStadium.value = '';
-    isEditingTeamDetails.value = false;
-  }
-
-  function saveTeamDetails() {
-    if (!selectedTeam.value) return;
-
-    // Find the team in the teams array
-    const teamIndex = teams.value.findIndex(t => t.id === selectedTeam.value?.id);
-    if (teamIndex === -1) return;
-
-    // Update the team's coach and stadium
-    teams.value[teamIndex].coach = editCoach.value;
-    teams.value[teamIndex].stadium = editStadium.value;
-
-    // Update the selected team
-    selectedTeam.value.coach = editCoach.value;
-    selectedTeam.value.stadium = editStadium.value;
-
-    // Show success message
-    showEditSuccess.value = true;
-    setTimeout(() => {
-      showEditSuccess.value = false;
-    }, 3000);
-
-    // Close the modal
-    isEditingTeamDetails.value = false;
-  }
-
-  function toggleFavoriteTeam(team: Team, event: Event | null) {
-    // Stop event propagation to prevent navigating to team details
-    if (event) {
-      event.stopPropagation();
-    }
-
-    if (favoriteTeamId.value === team.id) {
-      // If clicking the current favorite, remove it
-      favoriteTeamId.value = null;
-      localStorage.removeItem('favoriteTeamId');
-    } else {
-      // Set as new favorite
-      favoriteTeamId.value = team.id;
-      localStorage.setItem('favoriteTeamId', team.id.toString());
-    }
-  }
 </script>
 
 <template>
   <NuxtLayout>
     <main class="container mx-auto grow px-4 py-8">
-      <UiSpinner v-if="isLoading" />
+      <UiSpinner v-if="teamsStore.isLoading" />
       <!-- Teams Table View (moved above favorite team section) -->
       <div
-        v-if="!selectedTeam && !isLoading"
+        v-if="!selectedTeam && !teamsStore.isLoading"
         class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden mb-8"
       >
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -755,10 +358,10 @@
             <tr
               v-for="team in filteredAndSortedTeams"
               :key="team.id"
-              @click="selectTeam(team)"
+              @click="teamsStore.selectTeam(team.id)"
               class="hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
               :class="{
-                'bg-blue-50 dark:bg-blue-900/20': favoriteTeamId === team.id,
+                'bg-blue-50 dark:bg-blue-900/20': teamsStore.favoriteTeamId === team.id,
               }"
             >
               <td class="px-6 py-4 whitespace-nowrap">
@@ -773,13 +376,13 @@
                   </div>
                   <!-- Favorite Star -->
                   <button
-                    @click="toggleFavoriteTeam(team, $event)"
+                    @click="teamsStore.toggleFavoriteTeam(team)"
                     class="ml-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     :class="{
                       'bg-yellow-500 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200':
-                        favoriteTeamId === team.id,
+                        teamsStore.favoriteTeamId === team.id,
                       'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600':
-                        favoriteTeamId !== team.id,
+                        teamsStore.favoriteTeamId !== team.id,
                     }"
                     title="Set as favorite team"
                   >
@@ -807,7 +410,7 @@
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900 dark:text-white">
-                  {{ gamesPlayed(team) }}
+                  {{ teamsStore.gamesPlayed(team) }}
                 </div>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
@@ -857,17 +460,17 @@
       </div>
 
       <!-- Favorite Team Section (only shown when a favorite team is selected) -->
-      <div v-if="favoriteTeam && !selectedTeam && !isLoading" class="mb-8">
+      <div v-if="teamsStore.favoriteTeam && !selectedTeam && !teamsStore.isLoading" class="mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
           <div
             class="p-4 bg-blue-50 dark:bg-blue-900 border-b border-blue-100 dark:border-blue-800"
           >
             <div class="flex justify-between items-center">
               <h2 class="text-lg font-semibold text-blue-800 dark:text-blue-200">
-                <span class="mr-2">⭐</span> {{ favoriteTeam.name }} - Recent Form
+                <span class="mr-2">⭐</span> {{ teamsStore.favoriteTeam.name }} - Recent Form
               </h2>
               <button
-                @click="selectTeam(favoriteTeam)"
+                @click="teamsStore.selectTeam(teamsStore.favoriteTeam.id)"
                 class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
               >
                 View Full Details
@@ -877,7 +480,7 @@
 
           <div class="p-6">
             <div
-              v-if="favoriteTeamRecentMatches.length === 0"
+              v-if="teamsStore.favoriteTeamRecentMatches.length === 0"
               class="text-center py-4 text-gray-500 dark:text-gray-400"
             >
               No recent matches available
@@ -887,7 +490,7 @@
               <div class="mt-2">
                 <div class="flex space-x-3">
                   <span
-                    v-for="(match, index) in favoriteTeamRecentMatches"
+                    v-for="(match, index) in teamsStore.favoriteTeamRecentMatches"
                     :key="index"
                     class="w-10 h-10 flex items-center justify-center text-white text-sm font-bold rounded-full"
                     :class="{
@@ -933,7 +536,7 @@
                     class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
                   >
                     <tr
-                      v-for="match in favoriteTeamRecentMatches"
+                      v-for="match in teamsStore.favoriteTeamRecentMatches"
                       :key="match.id"
                       class="hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
@@ -989,7 +592,7 @@
       <div v-else-if="selectedTeam" class="team-details py-6">
         <div class="flex justify-between items-center mb-6">
           <button
-            @click="selectedTeam = null"
+            @click="teamsStore.selectedTeamId = null"
             class="flex items-center text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
           >
             <svg
@@ -1011,13 +614,13 @@
 
           <!-- Favorite Button in Team Details -->
           <button
-            @click="toggleFavoriteTeam(selectedTeam, $event)"
+            @click="teamsStore.toggleFavoriteTeam(selectedTeam)"
             class="flex items-center px-3 py-2 rounded-md transition-colors"
             :class="{
               'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200':
-                favoriteTeamId === selectedTeam.id,
+                teamsStore.favoriteTeamId === selectedTeam.id,
               'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600':
-                favoriteTeamId !== selectedTeam.id,
+                teamsStore.favoriteTeamId !== selectedTeam.id,
             }"
           >
             <svg
@@ -1034,7 +637,7 @@
                 d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
               />
             </svg>
-            {{ favoriteTeamId === selectedTeam.id ? 'Favorite Team' : 'Set as Favorite' }}
+            {{ teamsStore.favoriteTeamId === selectedTeam.id ? 'Favorite Team' : 'Set as Favorite' }}
           </button>
         </div>
 
@@ -1099,7 +702,7 @@
                     <p class="dark:text-gray-300">
                       <strong>Stadium:</strong> {{ selectedTeam.stadium }}
                       <button
-                        @click="startEditingTeamDetails"
+                        @click="teamsStore.startEditingTeamDetails()"
                         class="ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                       >
                         Edit
@@ -1166,7 +769,7 @@
 
             <!-- Success Message -->
             <div
-              v-if="showEditSuccess"
+              v-if="teamsStore.showEditSuccess"
               class="mb-4 p-3 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-md flex items-center"
             >
               <svg
@@ -1187,32 +790,32 @@
             </div>
 
             <!-- Loading State -->
-            <UiSpinner v-if="isLoadingMatches" />
+            <UiSpinner v-if="teamsStore.isLoadingMatches" />
 
             <!-- Match Editing Modal -->
             <BaseModal
-              v-if="isEditingResult"
+              v-if="teamsStore.isEditingResult"
               title="Edit Match Result"
               confirm-text="Save Result"
               cancel-text="Cancel"
-              @confirm="saveMatchResult"
-              @close="cancelEditMatch"
+              @confirm="teamsStore.saveMatchResult()"
+              @close="teamsStore.cancelEditMatch()"
             >
               <div class="mb-6">
                 <div class="flex items-center justify-between mb-4">
-                  <TeamInfoBox :team-name="editingMatch?.homeTeam" :role="'Home'" />
+                  <TeamInfoBox :team-name="teamsStore.editingMatch?.homeTeam" :role="'Home'" />
 
                   <div class="text-center">
                     <p class="font-semibold dark:text-white">vs</p>
                   </div>
 
-                  <TeamInfoBox :team-name="editingMatch?.awayTeam" :role="'Away'" />
+                  <TeamInfoBox :team-name="teamsStore.editingMatch?.awayTeam" :role="'Away'" />
                 </div>
 
                 <div class="flex items-center justify-center space-x-4">
                   <UiInputField
                     label="Home Score"
-                    v-model="editHomeScore"
+                    v-model="teamsStore.editHomeScore"
                     type="number"
                     min="0"
                     max="7"
@@ -1223,7 +826,7 @@
 
                   <UiInputField
                     label="Away Score"
-                    v-model="editAwayScore"
+                    v-model="teamsStore.editAwayScore"
                     type="number"
                     min="0"
                     max="7"
@@ -1235,7 +838,7 @@
 
             <!-- No Matches -->
             <div
-              v-else-if="teamMatches.length === 0"
+              v-else-if="teamsStore.teamMatches.length === 0"
               class="text-center py-8 text-gray-500 dark:text-gray-400"
             >
               No match history available
@@ -1272,7 +875,7 @@
                   <div class="text-center">
                     <p class="text-sm text-gray-500 dark:text-gray-400">Played</p>
                     <p class="text-2xl font-bold dark:text-white">
-                      {{ gamesPlayed(selectedTeam) }}
+                      {{ teamsStore.gamesPlayed(selectedTeam) }}
                     </p>
                   </div>
                   <div class="text-center">
@@ -1331,7 +934,7 @@
                     class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700"
                   >
                     <tr
-                      v-for="match in teamMatches"
+                      v-for="match in teamsStore.teamMatches"
                       :key="match.id"
                       class="hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
@@ -1376,7 +979,7 @@
                       </td>
                       <td class="px-4 py-3 whitespace-nowrap">
                         <button
-                          @click="startEditingMatch(match)"
+                          @click="teamsStore.startEditingMatch(match)"
                           class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
                         >
                           Edit Result
@@ -1394,17 +997,17 @@
 
     <!-- Add this modal for editing team details -->
     <BaseModal
-      v-if="isEditingTeamDetails"
+      v-if="teamsStore.isEditingTeamDetails"
       title="Edit Team Details"
       confirm-text="Save Details"
       cancel-text="Cancel"
-      @confirm="saveTeamDetails"
-      @close="cancelEditTeamDetails"
+      @confirm="teamsStore.saveTeamDetails()"
+      @close="teamsStore.cancelEditTeamDetails()"
     >
       <div class="space-y-4">
-        <UiInputField label="Coach" v-model="editCoach" placeholder="Coach name" />
+        <UiInputField label="Coach" v-model="teamsStore.editCoach" placeholder="Coach name" />
 
-        <UiInputField label="Stadium" v-model="editStadium" placeholder="Stadium name" />
+        <UiInputField label="Stadium" v-model="teamsStore.editStadium" placeholder="Stadium name" />
       </div>
     </BaseModal>
   </NuxtLayout>
