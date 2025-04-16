@@ -1,23 +1,16 @@
 <script setup lang="ts">
-  defineProps({
-    title: String,
-    confirmText: {
-      type: String,
-      default: 'Confirm',
-    },
-    cancelText: {
-      type: String,
-      default: 'Cancel',
-    },
-    showCancel: {
-      type: Boolean,
-      default: true,
-    },
-    showConfirm: {
-      type: Boolean,
-      default: true,
-    },
-  });
+withDefaults(defineProps<{
+  title?: string;
+  confirmText?: string;
+  cancelText?: string;
+  showCancel?: boolean;
+  showConfirm?: boolean;
+}>(), {
+  confirmText: 'Confirm',
+  cancelText: 'Cancel',
+  showCancel: true,
+  showConfirm: true
+});
 
   defineEmits(['close', 'confirm']);
 </script>

@@ -7,15 +7,11 @@ import FormIndicator from '../FormIndicator.vue';
 
 const teamsStore = useTeamsStore();
 
-defineProps({
-  team: {
-    type: Object as () => Team,
-    required: true
-  },
-  isFavorite: {
-    type: Boolean,
-    default: false
-  }
+withDefaults(defineProps<{
+  team: Team;
+  isFavorite?: boolean;
+}>(), {
+  isFavorite: false
 });
 
 const emit = defineEmits(['click', 'toggleFavorite']);

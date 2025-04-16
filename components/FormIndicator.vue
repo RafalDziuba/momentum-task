@@ -1,11 +1,7 @@
 <script setup lang="ts">
-defineProps({
-  result: {
-    type: String,
-    required: true,
-    validator: (value: string) => ['W', 'L', 'D'].includes(value)
-  }
-});
+defineProps<{
+  result: 'W' | 'L' | 'D';
+}>();
 </script>
 
 <template>

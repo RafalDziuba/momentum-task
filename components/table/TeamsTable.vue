@@ -6,20 +6,11 @@ import SortableTableHeader from './SortableTableHeader.vue';
 import TeamTableRow from './TeamTableRow.vue';
 import { useTeamsStore } from '../../stores/teamsModule';
 
-const props = defineProps({
-  teams: {
-    type: Array as () => Team[],
-    required: true
-  },
-  sortBy: {
-    type: String as () => SortField,
-    required: true
-  },
-  sortDirection: {
-    type: String as () => SortDirection,
-    required: true
-  }
-});
+defineProps<{
+  teams: Team[];
+  sortBy: SortField;
+  sortDirection: SortDirection;
+}>();
 
 const emit = defineEmits(['sort', 'rowClick', 'toggleFavorite']);
 

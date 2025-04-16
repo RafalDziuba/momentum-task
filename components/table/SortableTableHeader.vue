@@ -1,24 +1,12 @@
 <script setup lang="ts">
 import { SortField, SortDirection } from '../../types/enums';
 
-defineProps({
-  label: {
-    type: String,
-    required: true
-  },
-  field: {
-    type: String as () => SortField,
-    required: true
-  },
-  currentSortBy: {
-    type: String as () => SortField,
-    required: true
-  },
-  currentDirection: {
-    type: String as () => SortDirection,
-    required: true
-  }
-});
+defineProps<{
+  label: string;
+  field: SortField;
+  currentSortBy: SortField;
+  currentDirection: SortDirection;
+}>();
 
 const emit = defineEmits(['sort']);
 </script>

@@ -1,9 +1,7 @@
 <script setup lang="ts">
-defineProps({
-  value: {
-    required: true
-  }
-});
+defineProps<{
+  value: unknown;
+}>();
 </script>
 
 <template>

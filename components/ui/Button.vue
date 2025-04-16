@@ -1,13 +1,10 @@
 <script setup lang="ts">
-defineProps({
-  primary: {
-    type: Boolean,
-    default: false
-  },
-  secondary: {
-    type: Boolean,
-    default: false
-  }
+withDefaults(defineProps<{
+  primary?: boolean;
+  secondary?: boolean;
+}>(), {
+  primary: true,
+  secondary: false
 });
 </script>
 

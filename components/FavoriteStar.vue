@@ -1,9 +1,8 @@
 <script setup lang="ts">
-defineProps({
-  isFavorite: {
-    type: Boolean,
-    default: false
-  }
+withDefaults(defineProps<{
+  isFavorite?: boolean
+}>(), {
+  isFavorite: false
 });
 
 const emit = defineEmits(['toggle']);
