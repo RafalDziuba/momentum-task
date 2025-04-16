@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { useTeamsStore } from '~/stores/teamsModule';
-import type { FormattedMatch } from '~/types';
-import FormIndicator from '~/components/FormIndicator.vue';
+  import { useTeamsStore } from '~/stores/teamsModule';
+  import type { FormattedMatch } from '~/types';
+  import FormIndicator from '~/components/FormIndicator.vue';
+  import TableHeadCell from '~/components/table/TableHeadCell.vue';
+  import ActionButton from '~/components/ActionButton.vue';
 
-defineProps<{
-  matches: FormattedMatch[];
-}>();
+  defineProps<{
+    matches: FormattedMatch[];
+  }>();
 
-const teamsStore = useTeamsStore();
+  const teamsStore = useTeamsStore();
+
+  const headers = ['Date', 'Match', 'Result', 'Actions'];
 </script>
 
 <template>
@@ -15,23 +19,12 @@ const teamsStore = useTeamsStore();
     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
       <thead class="bg-gray-50 dark:bg-gray-700">
         <tr>
-          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Date
-          </th>
-          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Match
-          </th>
-          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Result
-          </th>
-          <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-            Actions
-          </th>
+          <TableHeadCell v-for="header in headers" :key="header" :label="header" />
         </tr>
       </thead>
       <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-        <tr 
-          v-for="match in matches" 
+        <tr
+          v-for="match in matches"
           :key="match.id"
           class="hover:bg-gray-50 dark:hover:bg-gray-700"
         >
@@ -40,17 +33,11 @@ const teamsStore = useTeamsStore();
           </td>
           <td class="px-4 py-3 whitespace-nowrap">
             <div class="flex items-center">
-              <span
-                :class="{ 'font-bold': match.isHome }"
-                class="text-gray-900 dark:text-white"
-              >
+              <span :class="{ 'font-bold': match.isHome }" class="text-gray-900 dark:text-white">
                 {{ match.homeTeam }}
               </span>
               <span class="mx-2 text-gray-500 dark:text-gray-400">vs</span>
-              <span
-                :class="{ 'font-bold': !match.isHome }"
-                class="text-gray-900 dark:text-white"
-              >
+              <span :class="{ 'font-bold': !match.isHome }" class="text-gray-900 dark:text-white">
                 {{ match.awayTeam }}
               </span>
             </div>
@@ -64,12 +51,7 @@ const teamsStore = useTeamsStore();
             </div>
           </td>
           <td class="px-4 py-3 whitespace-nowrap">
-            <button
-              @click="teamsStore.startEditingMatch(match)"
-              class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-            >
-              Edit Result
-            </button>
+            <ActionButton label="Edit Result" @click="teamsStore.startEditingMatch(match)" />
           </td>
         </tr>
       </tbody>

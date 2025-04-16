@@ -5,7 +5,7 @@
   import StadiumIcon from '../icons/StadiumIcon.vue';
   import PersonIcon from '../icons/PersonIcon.vue';
   import TeamInfoItem from '~/components/Team/TeamInfoItem.vue';
-
+  import ActionButton from '~/components/ActionButton.vue';
 
   defineProps<{
     team: Team;
@@ -35,12 +35,12 @@
       <TeamInfoItem label="Stadium" :value="team.stadium">
         <template #icon><StadiumIcon /></template>
         <template #action>
-          <button
+          <ActionButton
+            label="Edit"
+            size="sm"
             @click="teamsStore.startEditingTeamDetails()"
-            class="ml-2 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
-          >
-            Edit
-          </button>
+            class="ml-2"
+          />
         </template>
       </TeamInfoItem>
 
