@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useTeamsStore } from '~/stores/teamsModule';
 import type { FormattedMatch } from '~/types';
+import FormIndicator from '~/components/FormIndicator.vue';
 
 defineProps<{
   matches: FormattedMatch[];
@@ -59,16 +60,7 @@ const teamsStore = useTeamsStore();
               <span class="text-gray-900 dark:text-white font-medium">
                 {{ match.homeScore }} - {{ match.awayScore }}
               </span>
-              <span
-                class="w-6 h-6 flex items-center justify-center text-white text-xs font-bold rounded-full"
-                :class="{
-                  'bg-green-500': match.result === 'W',
-                  'bg-red-500': match.result === 'L',
-                  'bg-yellow-500': match.result === 'D',
-                }"
-              >
-                {{ match.result }}
-              </span>
+              <FormIndicator :result="match.result" size="md" />
             </div>
           </td>
           <td class="px-4 py-3 whitespace-nowrap">
