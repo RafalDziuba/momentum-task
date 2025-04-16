@@ -1,15 +1,10 @@
 <script setup lang="ts">
-  defineProps({
-    teamName: {
-      type: String,
-      default: 'Team Name',
-    },
-
-    role: {
-      type: String,
-      required: true,
-    },
-  });
+withDefaults(defineProps<{
+  teamName?: string;
+  role: string;
+}>(), {
+  teamName: 'Team Name'
+});
 </script>
 
 <template>

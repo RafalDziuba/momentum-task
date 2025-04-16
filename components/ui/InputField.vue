@@ -3,32 +3,20 @@
     inheritAttrs: false,
   });
 
-  defineProps({
-    label: {
-      type: String,
-      required: true,
-    },
-    modelValue: {
-      type: [String, Number],
-      default: '',
-    },
-    placeholder: {
-      type: String,
-      default: '',
-    },
-    type: {
-      type: String,
-      default: 'text',
-    },
-    min: {
-      type: [Number, String],
-      default: undefined,
-    },
-    max: {
-      type: [Number, String],
-      default: undefined,
-    },
-  });
+withDefaults(defineProps<{
+  label: string;
+  modelValue?: string | number;
+  placeholder?: string;
+  type?: string;
+  min?: number | string;
+  max?: number | string;
+}>(), {
+  modelValue: '',
+  placeholder: '',
+  type: 'text',
+  min: undefined,
+  max: undefined
+});
 
   defineEmits(['update:modelValue']);
 </script>
