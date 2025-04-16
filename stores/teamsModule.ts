@@ -164,18 +164,22 @@ export const useTeamsStore = defineStore('teams', () => {
 
       if (!homeTeam || !awayTeam) return;
 
-      homeTeam.goalsFor += match.homeScore;
-      homeTeam.goalsAgainst += match.awayScore;
-      awayTeam.goalsFor += match.awayScore;
-      awayTeam.goalsAgainst += match.homeScore;
+      // Ensure all scores are treated as numbers
+      const homeScore = Number(match.homeScore);
+      const awayScore = Number(match.awayScore);
 
-      if (match.homeScore > match.awayScore) {
+      homeTeam.goalsFor += homeScore;
+      homeTeam.goalsAgainst += awayScore;
+      awayTeam.goalsFor += awayScore;
+      awayTeam.goalsAgainst += homeScore;
+
+      if (homeScore > awayScore) {
         homeTeam.wins += 1;
         homeTeam.points += 3;
         homeTeam.recentForm.unshift(MatchResult.Win);
         awayTeam.losses += 1;
         awayTeam.recentForm.unshift(MatchResult.Loss);
-      } else if (match.homeScore < match.awayScore) {
+      } else if (homeScore < awayScore) {
         awayTeam.wins += 1;
         awayTeam.points += 3;
         awayTeam.recentForm.unshift(MatchResult.Win);
@@ -370,8 +374,8 @@ export const useTeamsStore = defineStore('teams', () => {
       id: newId,
       homeTeamId: matchData.homeTeamId,
       awayTeamId: matchData.awayTeamId,
-      homeScore: matchData.homeScore,
-      awayScore: matchData.awayScore,
+      homeScore: Number(matchData.homeScore),
+      awayScore: Number(matchData.awayScore),
       date: matchData.date
     };
 
