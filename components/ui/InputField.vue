@@ -5,7 +5,7 @@
 
 withDefaults(defineProps<{
   label: string;
-  modelValue?: string | number;
+  modelValue?: string | number | null;
   placeholder?: string;
   type?: string;
   min?: number | string;

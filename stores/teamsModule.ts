@@ -3,6 +3,14 @@ import { ref, computed } from 'vue';
 import type { Team, Match, FormattedMatch } from '~/types';
 import { MatchResult } from '~/types/enums';
 
+interface NewMatchResult {
+  homeTeamId: number;
+  awayTeamId: number;
+  homeScore: number;
+  awayScore: number;
+  date: string;
+}
+
 export const useTeamsStore = defineStore('teams', () => {
   // State
   const teams = ref<Team[]>([]);
@@ -156,18 +164,22 @@ export const useTeamsStore = defineStore('teams', () => {
 
       if (!homeTeam || !awayTeam) return;
 
-      homeTeam.goalsFor += match.homeScore;
-      homeTeam.goalsAgainst += match.awayScore;
-      awayTeam.goalsFor += match.awayScore;
-      awayTeam.goalsAgainst += match.homeScore;
+      // Ensure all scores are treated as numbers
+      const homeScore = Number(match.homeScore);
+      const awayScore = Number(match.awayScore);
 
-      if (match.homeScore > match.awayScore) {
+      homeTeam.goalsFor += homeScore;
+      homeTeam.goalsAgainst += awayScore;
+      awayTeam.goalsFor += awayScore;
+      awayTeam.goalsAgainst += homeScore;
+
+      if (homeScore > awayScore) {
         homeTeam.wins += 1;
         homeTeam.points += 3;
         homeTeam.recentForm.unshift(MatchResult.Win);
         awayTeam.losses += 1;
         awayTeam.recentForm.unshift(MatchResult.Loss);
-      } else if (match.homeScore < match.awayScore) {
+      } else if (homeScore < awayScore) {
         awayTeam.wins += 1;
         awayTeam.points += 3;
         awayTeam.recentForm.unshift(MatchResult.Win);
@@ -353,8 +365,67 @@ export const useTeamsStore = defineStore('teams', () => {
     selectedTeamId.value = null;
   }
 
+  function addMatchResult(matchData: NewMatchResult) {
+    const newId = allMatches.value.length > 0 
+      ? Math.max(...allMatches.value.map(m => m.id)) + 1 
+      : 1;
+
+    const newMatch: Match = {
+      id: newId,
+      homeTeamId: matchData.homeTeamId,
+      awayTeamId: matchData.awayTeamId,
+      homeScore: Number(matchData.homeScore),
+      awayScore: Number(matchData.awayScore),
+      date: matchData.date
+    };
+
+    allMatches.value.push(newMatch);
+
+    const teamsData = teams.value.map(team => ({
+      ...team,
+      points: 0,
+      wins: 0,
+      draws: 0,
+      losses: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      recentForm: [],
+    }));
+
+    const teamsWithStats = calculateTeamStats(teamsData, allMatches.value);
+
+    const sortedTeams = [...teamsWithStats].sort((a, b) => {
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+      const aGoalDiff = a.goalsFor - a.goalsAgainst;
+      const bGoalDiff = b.goalsFor - b.goalsAgainst;
+      if (bGoalDiff !== aGoalDiff) {
+        return bGoalDiff - aGoalDiff;
+      }
+      if (b.goalsFor !== a.goalsFor) {
+        return b.goalsFor - a.goalsFor;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    sortedTeams.forEach((team, index) => {
+      team.position = index + 1;
+    });
+
+    teams.value = sortedTeams;
+
+    if (selectedTeamId.value === matchData.homeTeamId || selectedTeamId.value === matchData.awayTeamId) {
+      teamMatches.value = getTeamMatches(selectedTeamId.value);
+    }
+
+    showEditSuccess.value = true;
+    setTimeout(() => {
+      showEditSuccess.value = false;
+    }, 3000);
+  }
+
   return {
-    // State
     teams,
     allMatches,
     selectedTeamId,
@@ -390,5 +461,6 @@ export const useTeamsStore = defineStore('teams', () => {
     cancelEditTeamDetails,
     saveTeamDetails,
     clearSelectedTeam,
+    addMatchResult,
   };
 });
